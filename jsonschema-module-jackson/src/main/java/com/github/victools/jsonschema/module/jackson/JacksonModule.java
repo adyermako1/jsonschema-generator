@@ -41,6 +41,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import src.main.java.com.github.victools.jsonschema.module.jackson.extended.annotation.JsonPropertyTitle;
 
 /**
  * Module for setting up schema generation aspects based on {@code jackson-annotations}.
@@ -49,6 +50,8 @@ import java.util.Set;
  * <li>Apply alternative property names defined in {@link JsonProperty} annotations.</li>
  * <li>Exclude properties that are deemed to be ignored per the various annotations for that purpose.</li>
  * <li>Optionally: treat enum types as plain strings as per {@link com.fasterxml.jackson.annotation.JsonValue JsonValue} annotations.</li>
+ * <li>Optionally: populate the "title" as per
+ * {@link src.main.java.com.github.victools.jsonschema.module.jackson.extended.annotation.JsonPropertyTitle JsonPropertyTitle} annotations.</li>
  * </ul>
  */
 public class JacksonModule implements Module {
@@ -136,6 +139,10 @@ public class JacksonModule implements Module {
         if (this.options.contains(JacksonOption.RESPECT_JSONPROPERTY_REQUIRED)) {
             configPart.withRequiredCheck(this::getRequiredCheckBasedOnJsonPropertyAnnotation);
         }
+
+        if (this.options.contains(JacksonOption.RESPECT_JSONPROPERTY_TITLE)) {
+            configPart.withTitleResolver(this::resolveTitle);
+        }
     }
 
     /**
@@ -151,6 +158,14 @@ public class JacksonModule implements Module {
     protected String resolveDescription(MemberScope<?, ?> member) {
         // look for property specific description
         JsonPropertyDescription propertyAnnotation = member.getAnnotationConsideringFieldAndGetterIfSupported(JsonPropertyDescription.class);
+        if (propertyAnnotation != null) {
+            return propertyAnnotation.value();
+        }
+        return null;
+    }
+
+    protected String resolveTitle(MemberScope<?, ?> member) {
+        JsonPropertyTitle propertyAnnotation = member.getAnnotationConsideringFieldAndGetterIfSupported(JsonPropertyTitle.class);
         if (propertyAnnotation != null) {
             return propertyAnnotation.value();
         }
