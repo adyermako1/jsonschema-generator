@@ -39,6 +39,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import src.main.java.com.github.victools.jsonschema.module.jackson.extended.annotation.JsonPropertyTitle;
 
 /**
  * Test for the {@link JacksonModule}.
@@ -114,7 +115,7 @@ public class JacksonModuleTest {
     }
 
     @Test
-    public void testApplyToConfigBuilderWithIgnoreTypeInfoTranformOption() {
+    public void testApplyToConfigBuilderWithIgnoreTypeInfoTransformOption() {
         new JacksonModule(JacksonOption.IGNORE_TYPE_INFO_TRANSFORM)
                 .applyToConfigBuilder(this.configBuilder);
 
@@ -172,6 +173,7 @@ public class JacksonModuleTest {
         Mockito.verify(this.methodConfigPart).withWriteOnlyCheck(Mockito.any());
 
         Mockito.verify(this.typesInGeneralConfigPart).withDescriptionResolver(Mockito.any());
+//        Mockito.verify(this.typesInGeneralConfigPart).withTitleResolver(Mockito.any());
     }
 
     static Stream<Arguments> parametersForTestPropertyNameOverride() {
@@ -222,6 +224,30 @@ public class JacksonModuleTest {
         Mockito.verify(this.fieldConfigPart).withDescriptionResolver(captor.capture());
         String description = captor.getValue().apply(field);
         Assertions.assertEquals(expectedDescription, description);
+    }
+
+    static Stream<Arguments> parametersForTestTitleForTypeResolver() {
+        return Stream.of(
+                Arguments.of("fieldWithTitle", "field title"),
+                Arguments.of("unannotatedField", null)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("parametersForTestTitleForTypeResolver")
+    public void testTitleResolver(String fieldName, String expectedTitle) throws Exception {
+        new JacksonModule(JacksonOption.RESPECT_JSONPROPERTY_TITLE,
+                JacksonOption.IGNORE_PROPERTY_NAMING_STRATEGY,
+                JacksonOption.SKIP_SUBTYPE_LOOKUP,
+                JacksonOption.IGNORE_TYPE_INFO_TRANSFORM)
+                .applyToConfigBuilder(this.configBuilder);
+
+        FieldScope field = new TestType(TestClassForTitle.class).getMemberField(fieldName);
+
+        ArgumentCaptor<ConfigFunction<FieldScope, String>> captor = ArgumentCaptor.forClass(ConfigFunction.class);
+        Mockito.verify(this.fieldConfigPart).withTitleResolver(captor.capture());
+        String title = captor.getValue().apply(field);
+        Assertions.assertEquals(expectedTitle, title);
     }
 
     static Stream<Arguments> parametersForTestRequiredProperty() {
@@ -339,6 +365,13 @@ public class JacksonModuleTest {
         public Long getFieldWithDescriptionAndOnGetter() {
             return fieldWithDescriptionAndOnGetter;
         }
+    }
+
+    private static class TestClassForTitle {
+        @JsonPropertyTitle(value = "field title")
+        String fieldWithTitle;
+
+        Boolean unannotatedField;
     }
 
     private static class TestClassWithRequiredAnnotatedFields {
