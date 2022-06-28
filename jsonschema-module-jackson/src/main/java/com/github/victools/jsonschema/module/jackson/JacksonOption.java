@@ -78,5 +78,9 @@ public enum JacksonOption {
      *
      * @since 4.18.0
      */
-    RESPECT_JSONPROPERTY_REQUIRED
+    RESPECT_JSONPROPERTY_REQUIRED,
+    /**
+     * Use this option to include in property annotated with {@code @JsonPropertyTitle} the title field.
+     */
+    RESPECT_JSONPROPERTY_TITLE
 }
