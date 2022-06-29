@@ -8,7 +8,7 @@ import java.lang.annotation.Target;
 /**
  * This annotation allows to define a title for the property.
  */
-@Target({ElementType.FIELD})
+@Target({ElementType.ANNOTATION_TYPE, ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface JsonPropertyTitle {
     String value() default "title default";
