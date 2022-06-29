@@ -41,6 +41,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import src.main.java.com.github.victools.jsonschema.module.jackson.extended.annotation.JsonClassTitle;
+import src.main.java.com.github.victools.jsonschema.module.jackson.extended.annotation.JsonPropertyTitle;
 
 /**
  * Module for setting up schema generation aspects based on {@code jackson-annotations}.
@@ -49,6 +51,9 @@ import java.util.Set;
  * <li>Apply alternative property names defined in {@link JsonProperty} annotations.</li>
  * <li>Exclude properties that are deemed to be ignored per the various annotations for that purpose.</li>
  * <li>Optionally: treat enum types as plain strings as per {@link com.fasterxml.jackson.annotation.JsonValue JsonValue} annotations.</li>
+ * <li>Optionally: populate the "title" as per
+ * {@link src.main.java.com.github.victools.jsonschema.module.jackson.extended.annotation.JsonPropertyTitle JsonPropertyTitle} and
+ * {@link src.main.java.com.github.victools.jsonschema.module.jackson.extended.annotation.JsonClassTitle JsonClassTitle }annotations.</li>
  * </ul>
  */
 public class JacksonModule implements Module {
@@ -94,6 +99,7 @@ public class JacksonModule implements Module {
 
         SchemaGeneratorGeneralConfigPart generalConfigPart = builder.forTypesInGeneral();
         generalConfigPart.withDescriptionResolver(this::resolveDescriptionForType);
+        generalConfigPart.withTitleResolver(this::resolveTitleForType);
 
         boolean considerEnumJsonValue = this.options.contains(JacksonOption.FLATTENED_ENUMS_FROM_JSONVALUE);
         boolean considerEnumJsonProperty = this.options.contains(JacksonOption.FLATTENED_ENUMS_FROM_JSONPROPERTY);
@@ -136,6 +142,10 @@ public class JacksonModule implements Module {
         if (this.options.contains(JacksonOption.RESPECT_JSONPROPERTY_REQUIRED)) {
             configPart.withRequiredCheck(this::getRequiredCheckBasedOnJsonPropertyAnnotation);
         }
+
+        if (this.options.contains(JacksonOption.RESPECT_JSONPROPERTY_TITLE)) {
+            configPart.withTitleResolver(this::resolveTitle);
+        }
     }
 
     /**
@@ -158,6 +168,24 @@ public class JacksonModule implements Module {
     }
 
     /**
+     * Determine the given member's associated "title" in the following order of priority.
+     * <ol>
+     * <li>{@link JsonPropertyTitle} annotation on the field/method itself</li>
+     * <li>{@link JsonPropertyTitle} annotation on the field's getter method or the getter method's associated field</li>
+     * </ol>
+     *
+     * @param member field/method for which to collect an available title
+     * @return successfully looked-up title (or {@code null})
+     */
+    protected String resolveTitle(MemberScope<?, ?> member) {
+        JsonPropertyTitle propertyAnnotation = member.getAnnotationConsideringFieldAndGetterIfSupported(JsonPropertyTitle.class);
+        if (propertyAnnotation != null) {
+            return propertyAnnotation.value();
+        }
+        return null;
+    }
+
+    /**
      * Determine the given type's associated "description" via the following annotation.
      * <ul>
      * <li>{@link JsonClassDescription} annotation on the targeted type's class</li>
@@ -169,6 +197,24 @@ public class JacksonModule implements Module {
     protected String resolveDescriptionForType(TypeScope scope) {
         Class<?> rawType = scope.getType().getErasedType();
         JsonClassDescription classAnnotation = rawType.getAnnotation(JsonClassDescription.class);
+        if (classAnnotation != null) {
+            return classAnnotation.value();
+        }
+        return null;
+    }
+
+    /**
+     * Determine the given type's associated "title" via the following annotation.
+     * <ul>
+     * <li>{@link JsonClassTitle} annotation on the targeted type's class</li>
+     * </ul>
+     *
+     * @param scope scope for which to collect an available title
+     * @return successfully looked-up title (or {@code null})
+     */
+    protected String resolveTitleForType(TypeScope scope) {
+        Class<?> rawType = scope.getType().getErasedType();
+        JsonClassTitle classAnnotation = rawType.getAnnotation(JsonClassTitle.class);
         if (classAnnotation != null) {
             return classAnnotation.value();
         }
@@ -304,7 +350,7 @@ public class JacksonModule implements Module {
      * @return whether the field should be in the "required" list or not
      */
     protected boolean getRequiredCheckBasedOnJsonPropertyAnnotation(MemberScope<?, ?> member) {
-        JsonProperty jsonProperty = member.getAnnotationConsideringFieldAndGetterIfSupported(JsonProperty.class) ;
+        JsonProperty jsonProperty = member.getAnnotationConsideringFieldAndGetterIfSupported(JsonProperty.class);
         return jsonProperty != null && jsonProperty.required();
     }
 
